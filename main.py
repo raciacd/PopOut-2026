@@ -7,7 +7,7 @@ class Connect4:
         return Position(self.turn)
                 
 class Position:
-    def __init__(self, turn, mask = 0, position = 0, num_turns = 0):
+    def __init__(self, turn, mask = 0, position = 0, num_turns = 0, history = None):
         self.turn = turn
         self.result = None
         self.terminal = False
@@ -15,61 +15,121 @@ class Position:
         self.mask = mask
         self.position = position
         self._compute_hash()
+        
+        # Repetition rule
+        if history is None:
+            self.history = {self.hash: 1}
+        else:
+            self.history = history
+            self.history[self.hash] = self.history.get(self.hash, 0) + 1
                 
     # returns new position
     def move(self, loc):
-        new_position = self.position ^ self.mask
-        new_mask = self.mask | (self.mask + (1 << (loc*7)))
+        # Rules 2 and 3, draw
+        if loc == -1:
+            new_pos = Position(int(not self.turn), self.mask, self.position ^ self.mask, self.num_turns + 1, self.history.copy())
+            new_pos.terminal = True
+            new_pos.result = 0
+            return new_pos
 
-        new_pos = Position(int(not self.turn), new_mask, new_position, self.num_turns + 1)
-        new_pos.game_over()
+        is_pop = False
+        
+        if 0 <= loc <= 6:
+            # Normal move (0-6)
+            new_position = self.position ^ self.mask
+            new_mask = self.mask | (self.mask + (1 << (loc*7)))
+        else:
+            # Pop move (7-13)
+            c = loc - 7
+            col_mask = 0b111111 << (c * 7)
+            
+            curr_col = self.position & col_mask
+            opp_col = (self.position ^ self.mask) & col_mask
+            
+            # shift move
+            new_curr_col = (curr_col >> 1) & col_mask
+            new_opp_col = (opp_col >> 1) & col_mask
+            
+            new_curr = (self.position & ~col_mask) | new_curr_col
+            new_opp = ((self.position ^ self.mask) & ~col_mask) | new_opp_col
+            
+            new_position = new_opp
+            new_mask = new_curr | new_opp
+            is_pop = True
+
+        new_pos = Position(int(not self.turn), new_mask, new_position, self.num_turns + 1, self.history.copy())
+        new_pos.game_over(is_pop)
         return new_pos
     
     # return list of legal moves
     def legal_moves(self):
         bit_moves = []
+        # regular moves
         for i in range(7):
             col_mask = 0b111111 << 7 * i
             if col_mask != self.mask & col_mask:
                 bit_moves.append(i)
-        return bit_moves
-    
+                
+        # pop move
+        # checks if the piece belongs to the current player
+        for i in range(7):
+            bottom_bit = 1 << (i * 7)
+            if self.position & bottom_bit:
+                bit_moves.append(i + 7)
 
-    def game_over(self):
-        # sets result to -1, 0, or 1 if game is over (otherwise self.result is None)
-        connected_4 = self.connected_four_fast()
+        # draw checkm, full board
+        is_full = (self.mask == 279258638311359)
+        # second draw check, repetition
+        is_repetition = self.history.get(self.hash, 0) >= 3
         
-        if connected_4:
+        # player declares draw
+        if is_full or is_repetition:
+            bit_moves.append(-1)
+            
+        return bit_moves
+
+    def game_over(self, is_pop=False):
+        # sets result to -1, 0, or 1 if game is over (otherwise self.result is None)
+        
+        just_moved_won = self.connected_four_fast()
+        about_to_move_won = False
+        
+        if is_pop:
+            about_to_move_won = self.connected_four_fast(self.position)
+            
+        if just_moved_won or about_to_move_won:
             self.terminal = True
-            # The player who JUST moved is the winner.
-            # Since turn was already flipped in move(), we check the previous turn.
-            self.result = 1 if self.turn == 0 else -1
+            
+            if just_moved_won:
+                self.result = 1 if self.turn == 1 else -1 
+            else:
+                self.result = 1 if self.turn == 0 else -1
         else:
             self.terminal = False
             self.result = None
             
-        # mask when all spaces are full
-        if self.mask == 279258638311359:
+        if not self.terminal and not self.legal_moves():
             self.terminal = True
             self.result = 0
             
-    def connected_four_fast(self):
-        other_position = self.position ^ self.mask
-        
+    def connected_four_fast(self, board_position=None):
+        if board_position is None:
+            board_position = self.position ^ self.mask
+            
         # Horizontal check
-        m = other_position & (other_position >> 7)
+        m = board_position & (board_position >> 7)
         if m & (m >> 14):
             return True
         # Diagonal \
-        m = other_position & (other_position >> 6)
+        m = board_position & (board_position >> 6)
         if m & (m >> 12):
             return True
         # Diagonal /
-        m = other_position & (other_position >> 8)
+        m = board_position & (board_position >> 8)
         if m & (m >> 16):
             return True
         # Vertical
-        m = other_position & (other_position >> 1)
+        m = board_position & (board_position >> 1)
         if m & (m >> 2):
             return True
         # Nothing found
@@ -85,38 +145,53 @@ class Position:
     def __eq__(self, other):
         return isinstance(other, Position) and self.turn == other.turn and self.mask == other.mask and self.position == other.position
 
-    # --- ADDED FOR VISUALIZATION ---
-    def print_board(self):
-        # We determine Player 0 and Player 1 bits based on current turn
+    # Visual interface
+    def print_board(self, legal_moves=None):
         p0_bits = self.position if self.turn == 0 else (self.position ^ self.mask)
         p1_bits = self.position if self.turn == 1 else (self.position ^ self.mask)
         
-        display = "\n 0 1 2 3 4 5 6\n---------------"
+        display = "\n  7  8  9 10 11 12 13 : Pop"
+        display += "\n  0  1  2  3  4  5  6 : Drop\n-----------------------"
         for row in range(5, -1, -1):
             line = "|"
             for col in range(7):
                 bit = 1 << (col * 7 + row)
                 if p0_bits & bit:
-                    line += "X " # Player 0
+                    line += " O " # Player 0
                 elif p1_bits & bit:
-                    line += "O " # Player 1
+                    line += " X " # Player 1
                 else:
-                    line += ". " # Empty
+                    line += " . " # Empty
             display += "\n" + line + "|"
-        print(display + "\n---------------")
+        display += "\n-----------------------"
 
-# --- RUDIMENTARY GAME LOOP ---
+        if legal_moves is not None:
+                    drops = [m for m in legal_moves if 0 <= m <= 6]
+                    pops = [m for m in legal_moves if 7 <= m <= 13]
+                    draw = [-1] if -1 in legal_moves else []
+                    
+                    display += "\nLegal Moves:"
+                    if drops: display += f"\n  Drops: {drops}"
+                    if pops:  display += f"\n  Pops:  {pops}"
+                    if draw:  display += f"\n  Draw:  [-1]"
+                    display += "\n"
+
+        print(display)
+
+# Game loop
 if __name__ == "__main__":
     game = Connect4()
     pos = game.get_initial_position()
     
     while not pos.terminal:
-        pos.print_board()
         legal = pos.legal_moves()
-        print(f"Player {pos.turn}'s turn. Legal moves: {legal}")
+
+        pos.print_board(legal_moves=legal)
+
+        print(f"Player {pos.turn}'s turn.")
         
         try:
-            move = int(input("Choose a column: "))
+            move = int(input("Choose a move : "))
             if move not in legal:
                 print("Invalid move! Try again.")
                 continue
