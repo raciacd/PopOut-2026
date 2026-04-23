@@ -1,3 +1,5 @@
+from random_play import RandomPlay
+
 class Connect4:
     def __init__(self):
         self.turn = 0
@@ -178,27 +180,60 @@ class Position:
 
         print(display)
 
+class HumanPlay:
+    def __init__(self, name="Human"):
+        self.name = name
+
+    def get_move(self, position):
+        legal = position.legal_moves()
+        while True:
+            try:
+                move = int(input(f"[{self.name}] Choose a move : "))
+                if move in legal:
+                    return move
+                print("Invalid move! Try again.")
+            except ValueError:
+                print("Please enter a number.")
+
 # Game loop
 if __name__ == "__main__":
+    
+    def choose_player(num_player):
+        while True:
+            print(f"\nChoose a player for {num_player}")
+            print("1 - Human")
+            print("2 - Random Play")
+            player_str = input("Enter 1 or 2: ").strip()
+            
+            if player_str == '1':
+                return HumanPlay(f"Player {num_player} (Human)")
+            elif player_str == '2':
+                return RandomPlay(f"Player {num_player} (Random)")
+            else:
+                print("Invalid player! Please enter 1 or 2.")
+
+    agents = {
+        0: choose_player(0),
+        1: choose_player(1)
+    }
+
     game = Connect4()
     pos = game.get_initial_position()
     
+    print(f"\n--- Game start: {agents[0].name} VS {agents[1].name} ---")
+
+    # Loop Principal
     while not pos.terminal:
         legal = pos.legal_moves()
-
         pos.print_board(legal_moves=legal)
-
-        print(f"Player {pos.turn}'s turn.")
         
-        try:
-            move = int(input("Choose a move : "))
-            if move not in legal:
-                print("Invalid move! Try again.")
-                continue
-            pos = pos.move(move)
-        except ValueError:
-            print("Please enter a number.")
+        current_agent = agents[pos.turn]
+        print(f"\n{current_agent.name}'s turn.")
+        
+        move = current_agent.get_move(pos)
+        pos = pos.move(move)
 
+    # Fim de jogo
     pos.print_board()
     if pos.result == 0:
         print("It's a Draw!")
