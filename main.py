@@ -212,7 +212,7 @@ if __name__ == "__main__":
             elif player_str == '2':
                 return RandomPlay(f"Player {num_player} (Random)")
             elif player_str == '3':
-                return MCTSPlay(f"Player {num_player} (MCTS)", time_limit=1.0)
+                return MCTSPlay(f"Player {num_player} (MCTS)", time_limit=2.0)
             else:
                 print("Invalid player! Please enter 1 or 2.")
 
