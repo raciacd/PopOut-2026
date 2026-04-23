@@ -8,7 +8,12 @@ def get_nodes(initial_pos, time_limit):
     # (w, n, dict parent --> num_times_seen)
     nodes[initial_pos] = (0.0, 0.0, {initial_pos: 0})
     start_time = time.time()
-    while time.time() - start_time < time_limit:        
+
+    iterations = 0
+    
+    while time.time() - start_time < time_limit:   
+        iterations += 1
+
         # root to leaf traversal - returns entire traversal path
         leaf_path = get_leaf(nodes, initial_pos)
         
@@ -59,12 +64,16 @@ def get_nodes(initial_pos, time_limit):
             parent_n_dict[parent] += num_runs
             nodes[position] = (w + reward, n + num_runs, parent_n_dict)
             parent = position
-    return nodes
+    return nodes, iterations
 
 def ucb2_agent(time_limit):
     def strat(pos):
-        nodes = get_nodes(pos, time_limit)
+        nodes, iterations = get_nodes(pos, time_limit)
 
+        iter_per_sec = iterations/time_limit
+        print(f"Number of MCTS iterations: {iterations}")
+        print(f"Number of MCTS iterations per second: {iter_per_sec:.0f}")
+        
         # set up score threshold
         player = pos.turn
         best_score = float('-inf')
@@ -107,7 +116,7 @@ def randomly_play(pos):
         moves = cur_pos.legal_moves()
         loc = random.choice(moves)
 
-        cur_pos = cur_pos.move(loc)
+        cur_pos = cur_pos.move(loc) 
     return float(cur_pos.result)
         
 def get_leaf(nodes, root):
@@ -157,3 +166,23 @@ def get_leaf(nodes, root):
 def get_score(N, ni, r, player, c=2.0):
     if player == 0: return r + math.sqrt(c * math.log(N) / ni)
     return r - math.sqrt(c * math.log(N) / ni)
+
+class MCTSPlay:
+    def __init__(self, name="MCTS", time_limit=2.0):
+        """
+        time_limit: tempo em segundos que a IA tem para "pensar" por jogada.
+        Você pode aumentar para deixar a IA mais forte, ou diminuir para ser mais rápida.
+        """
+        self.name = name
+        self.time_limit = time_limit
+        # Instancia a estratégia (a função retornada por ucb2_agent)
+        self.strategy = ucb2_agent(self.time_limit)
+
+    def get_move(self, position):
+        print(f"[{self.name}] Analisando as possibilidades por {self.time_limit} segundos...")
+        
+        # Chama a função strat(pos) gerada pelo ucb2_agent
+        move = self.strategy(position)
+        
+        print(f"{self.name} played: {move}")
+        return move
