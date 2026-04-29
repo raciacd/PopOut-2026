@@ -10,6 +10,7 @@ def get_nodes(initial_pos, time_limit):
     start_time = time.time()
 
     iterations = 0
+    total_rollouts = 0 # rollout counter for statistics
     
     while time.time() - start_time < time_limit:   
         iterations += 1
@@ -44,6 +45,8 @@ def get_nodes(initial_pos, time_limit):
             num_runs = 10
             for _ in range(num_runs):
                 reward += randomly_play(child_pos)
+            total_rollouts += num_runs
+            
             w, n, parent_n_dict = nodes[child_pos]
             if leaf not in parent_n_dict:
                 parent_n_dict[leaf] = 0
@@ -56,6 +59,7 @@ def get_nodes(initial_pos, time_limit):
             num_runs = 10
             for _ in range(num_runs):
                 reward += randomly_play(leaf)   
+            total_rollouts += num_runs
         
         # update all positions in path to reflect new information
         parent = initial_pos
@@ -64,15 +68,18 @@ def get_nodes(initial_pos, time_limit):
             parent_n_dict[parent] += num_runs
             nodes[position] = (w + reward, n + num_runs, parent_n_dict)
             parent = position
-    return nodes, iterations
+            
+    return nodes, iterations, total_rollouts
 
 def ucb2_agent(time_limit):
     def strat(pos):
-        nodes, iterations = get_nodes(pos, time_limit)
+        nodes, iterations, total_rollouts = get_nodes(pos, time_limit)
 
-        iter_per_sec = iterations/time_limit
-        print(f"Number of MCTS iterations: {iterations}")
-        print(f"Number of MCTS iterations per second: {iter_per_sec:.0f}")
+        iter_per_sec = iterations / time_limit
+        rollouts_per_sec = total_rollouts / time_limit
+        
+        print(f"Number of MCTS iterations: {iterations} ({iter_per_sec:.0f} iters/sec)")
+        print(f"Number of MCTS rollouts:   {total_rollouts} ({rollouts_per_sec:.0f} rollouts/sec)")
         
         # set up score threshold
         player = pos.turn
@@ -110,14 +117,28 @@ def ucb2_agent(time_limit):
         
         
 # selects next move at random until terminal position
-def randomly_play(pos):
+def randomly_play(pos, max_depth=50):
     cur_pos = pos
-    while not cur_pos.terminal:
+    depth = 0
+    
+    # assures depth limit
+    while not cur_pos.terminal and depth < max_depth:
         moves = cur_pos.legal_moves()
         loc = random.choice(moves)
-
         cur_pos = cur_pos.move(loc) 
-    return float(cur_pos.result)
+        depth += 1
+        
+    # if the game doesnt end within the depth, a draw is considered
+    if not cur_pos.terminal:
+        return 0.5 
+
+    # reward standardization 1.0 win / 0.5 draw / 0.0 loss
+    if cur_pos.result == 1:
+        return 1.0
+    elif cur_pos.result == -1:
+        return 0.0
+    else:
+        return 0.5
         
 def get_leaf(nodes, root):
     current_node = root
@@ -146,9 +167,7 @@ def get_leaf(nodes, root):
             if temp_parent_n_count[current_node] == 0:
                 path.append(result_position)
                 return path
-            
-
-        
+                        
             # N is the number of times parent has been visited
             score = get_score(nodes[current_node][1], temp_parent_n_count[current_node], temp_w / temp_ni, next_player)
             if score < best_score and next_player == 1:
@@ -169,20 +188,12 @@ def get_score(N, ni, r, player, c=2.0):
 
 class MCTSPlay:
     def __init__(self, name="MCTS", time_limit=2.0):
-        """
-        time_limit: tempo em segundos que a IA tem para "pensar" por jogada.
-        Você pode aumentar para deixar a IA mais forte, ou diminuir para ser mais rápida.
-        """
         self.name = name
         self.time_limit = time_limit
-        # Instancia a estratégia (a função retornada por ucb2_agent)
         self.strategy = ucb2_agent(self.time_limit)
 
     def get_move(self, position):
         print(f"[{self.name}] Analisando as possibilidades por {self.time_limit} segundos...")
-        
-        # Chama a função strat(pos) gerada pelo ucb2_agent
         move = self.strategy(position)
-        
         print(f"{self.name} played: {move}")
         return move
