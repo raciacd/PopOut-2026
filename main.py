@@ -6,11 +6,13 @@ class Connect4:
         self.turn = 0
         self.result = None
         self.terminal = False
+        
     def get_initial_position(self):
         return Position(self.turn)
                 
 class Position:
-    def __init__(self, turn, mask = 0, position = 0, num_turns = 0, history = None):
+    # Removed the 'history' parameter to avoid memory overhead during MCTS rollouts
+    def __init__(self, turn, mask = 0, position = 0, num_turns = 0):
         self.turn = turn
         self.result = None
         self.terminal = False
@@ -18,19 +20,13 @@ class Position:
         self.mask = mask
         self.position = position
         self._compute_hash()
-        
-        # Repetition rule
-        if history is None:
-            self.history = {self.hash: 1}
-        else:
-            self.history = history
-            self.history[self.hash] = self.history.get(self.hash, 0) + 1
                 
     # returns new position
     def move(self, loc):
         # Rules 2 and 3, draw
         if loc == -1:
-            new_pos = Position(int(not self.turn), self.mask, self.position ^ self.mask, self.num_turns + 1, self.history.copy())
+            # Creation without history copy (pure math and bitwise operations)
+            new_pos = Position(int(not self.turn), self.mask, self.position ^ self.mask, self.num_turns + 1)
             new_pos.terminal = True
             new_pos.result = 0
             return new_pos
@@ -60,7 +56,8 @@ class Position:
             new_mask = new_curr | new_opp
             is_pop = True
 
-        new_pos = Position(int(not self.turn), new_mask, new_position, self.num_turns + 1, self.history.copy())
+        # Pure mathematical instance creation (No Garbage Collection bottleneck)
+        new_pos = Position(int(not self.turn), new_mask, new_position, self.num_turns + 1)
         new_pos.game_over(is_pop)
         return new_pos
     
@@ -80,20 +77,16 @@ class Position:
             if self.position & bottom_bit:
                 bit_moves.append(i + 7)
 
-        # draw checkm, full board
+        # draw check, full board
         is_full = (self.mask == 279258638311359)
-        # second draw check, repetition
-        is_repetition = self.history.get(self.hash, 0) >= 3
         
-        # player declares draw
-        if is_full or is_repetition:
+        if is_full:
             bit_moves.append(-1)
             
         return bit_moves
 
     def game_over(self, is_pop=False):
         # sets result to -1, 0, or 1 if game is over (otherwise self.result is None)
-        
         just_moved_won = self.connected_four_fast()
         about_to_move_won = False
         
@@ -145,6 +138,7 @@ class Position:
     
     def __hash__(self):
         return self.hash
+        
     def __eq__(self, other):
         return isinstance(other, Position) and self.turn == other.turn and self.mask == other.mask and self.position == other.position
 
@@ -205,7 +199,7 @@ if __name__ == "__main__":
             print("1 - Human")
             print("2 - Random Play")
             print("3 - MCTS")
-            player_str = input("Enter 1 or 2: ").strip()
+            player_str = input("Enter 1 or 2 or 3: ").strip()
             
             if player_str == '1':
                 return HumanPlay(f"Player {num_player} (Human)")
@@ -214,7 +208,7 @@ if __name__ == "__main__":
             elif player_str == '3':
                 return MCTSPlay(f"Player {num_player} (MCTS)", time_limit=2.0)
             else:
-                print("Invalid player! Please enter 1 or 2.")
+                print("Invalid player! Please enter 1, 2 or 3.")
 
     agents = {
         0: choose_player(0),
@@ -226,9 +220,21 @@ if __name__ == "__main__":
     
     print(f"\n--- Game start: {agents[0].name} VS {agents[1].name} ---")
 
-    # Loop Principal
+    # The Referee stores the global match memory here
+    global_history = {}
+
+    # Main Loop
     while not pos.terminal:
+        # Updates the occurrence count of the current board state
+        global_history[pos.hash] = global_history.get(pos.hash, 0) + 1
+        
         legal = pos.legal_moves()
+        
+        # Injects the draw option (-1) if threefold repetition is met
+        if global_history[pos.hash] >= 3 and -1 not in legal:
+            legal.append(-1)
+            print("\n[!] Attention: This state has repeated 3 times. Draw (-1) is available.")
+
         pos.print_board(legal_moves=legal)
         
         current_agent = agents[pos.turn]
@@ -237,7 +243,7 @@ if __name__ == "__main__":
         move = current_agent.get_move(pos)
         pos = pos.move(move)
 
-    # Fim de jogo
+    # End of game
     pos.print_board()
     if pos.result == 0:
         print("It's a Draw!")
