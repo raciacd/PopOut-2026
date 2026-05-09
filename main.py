@@ -11,7 +11,7 @@ class Connect4:
         return Position(self.turn)
                 
 class Position:
-    # Removed the 'history' parameter to avoid memory overhead during MCTS rollouts
+    # Removed 'history' parameter to avoid memory overload during rollouts
     def __init__(self, turn, mask = 0, position = 0, num_turns = 0):
         self.turn = turn
         self.result = None
@@ -56,7 +56,7 @@ class Position:
             new_mask = new_curr | new_opp
             is_pop = True
 
-        # Pure mathematical instance creation (No Garbage Collection bottleneck)
+        # mathematical instance creation (tries to fix garbage collection bottleneck)
         new_pos = Position(int(not self.turn), new_mask, new_position, self.num_turns + 1)
         new_pos.game_over(is_pop)
         return new_pos
@@ -220,12 +220,12 @@ if __name__ == "__main__":
     
     print(f"\n--- Game start: {agents[0].name} VS {agents[1].name} ---")
 
-    # The Referee stores the global match memory here
+    # memory stored to check for draws
     global_history = {}
 
     # Main Loop
     while not pos.terminal:
-        # Updates the occurrence count of the current board state
+        # updates the current board state occurences
         global_history[pos.hash] = global_history.get(pos.hash, 0) + 1
         
         legal = pos.legal_moves()
