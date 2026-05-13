@@ -1,102 +1,96 @@
-from id3_engine import ID3DecisionTree
-import numpy as np
-import pandas as pd
-import random
-
-# --- AGENTE ID3: O BOT QUE APRENDE COM O MCTS ---
+# --- ID3 AGENT: THE BOT THAT LEARNS FROM MCTS ---
 
 class ID3Play:
     def __init__(self, name="ID3-Bot", csv_path='mcts_2min_vs_random.csv'):
         self.name = name
-        # Criamos a árvore. Usei profundidade 20 para ela não ficar demasiado simples
+        # Initialize the tree with a depth limit to prevent overfitting
         self.tree = ID3DecisionTree(depth_limit=20)
         self.csv_path = csv_path
-        # Mal o jogo começa, o bot "estuda" o ficheiro CSV
+        # As soon as the bot is created, it 'studies' the CSV file
         self._prepare_model()
 
     def _prepare_model(self):
-        """Aqui o bot lê o dataset e fazemos os testes para ver se ele aprendeu bem."""
-        print(f"\n[!] O {self.name} está a estudar as jogadas do MCTS...")
+        """Loads data and runs validation tests to ensure the bot learned correctly."""
+        print(f"\n[!] {self.name} is studying MCTS gameplay data...")
         try:
-            # Abrir o ficheiro com as 8300 jogadas que guardámos antes
+            # Load the 8,300 moves collected previously
             df = pd.read_csv(self.csv_path)
-            X = df.iloc[:, 0:43].values  # O estado do tabuleiro e de quem é a vez
-            y = df.iloc[:, 43].values     # A jogada que o MCTS sugere fazer
+            X = df.iloc[:, 0:43].values  # Board state + player turn
+            y = df.iloc[:, 43].values     # The move chosen by MCTS (target)
             
-            # --- TESTE 1: DIVISÃO 70/30 (TREINO E TESTE) ---
-            # Baralhamos tudo para o bot não viciar na ordem dos dados
+            # --- TEST 1: 70/30 TRAIN-TEST SPLIT ---
+            # Shuffle indices so the bot doesn't get biased by data order
             indices = np.random.permutation(len(X))
-            ponto_de_corte = int(0.7 * len(X))
+            split_point = int(0.7 * len(X))
             
-            # 70% dos dados para a árvore aprender, 30% para testarmos se ela acerta
-            X_train, X_test = X[indices[:ponto_de_corte]], X[indices[ponto_de_corte:]]
-            y_train, y_test = y[indices[:ponto_de_corte]], y[indices[ponto_de_corte:]]
+            # Use 70% to learn and 30% to test if it can predict correctly
+            X_train, X_test = X[indices[:split_point]], X[indices[split_point:]]
+            y_train, y_test = y[indices[:split_point]], y[indices[split_point:]]
             
-            # Treinamos a nossa árvore ID3
             self.tree.fit(X_train, y_train)
             
-            # Verificamos a eficácia nos 30% que ficaram de fora
-            previsoes = self.tree.predict(X_test)
-            accuracy = np.mean(previsoes == y_test) * 100
-            print(f"-> No teste de 70/30, o bot acertou {accuracy:.2f}% das jogadas.")
+            # Check accuracy on the 30% unseen data
+            preds = self.tree.predict(X_test)
+            accuracy = np.mean(preds == y_test) * 100
+            print(f"-> 70/30 Holdout Accuracy: {accuracy:.2f}%")
 
-            # --- TESTE 2: CROSS-VALIDATION (K=5) ---
-            # Para ter a certeza que o resultado acima não foi sorte, testamos em 5 fatias diferentes
-            print("-> A verificar a robustez com 5-Fold Cross-Validation...")
+            # --- TEST 2: 5-FOLD CROSS-VALIDATION ---
+            # To ensure the result wasn't just luck, we test on 5 different data slices
+            print("-> Running 5-Fold Cross-Validation for robustness...")
             k = 5
-            tamanho_fatia = len(X) // k
-            resultados_cv = []
+            fold_size = len(X) // k
+            cv_scores = []
             
             for i in range(k):
-                inicio, fim = i * tamanho_fatia, (i + 1) * tamanho_fatia
+                start, end = i * fold_size, (i + 1) * fold_size
                 
-                # Separamos uma fatia para validar e as outras 4 para treinar
-                X_val, y_val = X[inicio:fim], y[inicio:fim]
-                X_treino_cv = np.concatenate([X[:inicio], X[fim:]])
-                y_treino_cv = np.concatenate([y[:inicio], y[fim:]])
+                # Separate one slice for validation and the other 4 for training
+                X_val, y_val = X[start:end], y[start:end]
+                X_train_cv = np.concatenate([X[:start], X[end:]])
+                y_train_cv = np.concatenate([y[:start], y[end:]])
                 
-                # Criamos uma árvore rápida só para este teste
-                arvore_teste = ID3DecisionTree(depth_limit=15)
-                arvore_teste.fit(X_treino_cv, y_treino_cv)
+                # Create a temporary tree for this specific fold test
+                test_tree = ID3DecisionTree(depth_limit=15)
+                test_tree.fit(X_train_cv, y_train_cv)
                 
-                # Guardamos o resultado desta rodada
-                score = np.mean(arvore_teste.predict(X_val) == y_val)
-                resultados_cv.append(score)
+                # Save the score for this round
+                score = np.mean(test_tree.predict(X_val) == y_val)
+                cv_scores.append(score)
             
-            # Mostramos a média final dos 5 testes
-            media_final = np.mean(resultados_cv) * 100
-            print(f"-> Média final do Cross-Validation: {media_final:.2f}%")
+            # Display the final average of the 5 tests
+            avg_cv = np.mean(cv_scores) * 100
+            print(f"-> Final Cross-Validation Mean: {avg_cv:.2f}%")
             
         except Exception as e:
-            print(f"Houve um erro ao ler o CSV ou a treinar: {e}")
+            print(f"Error reading CSV or training model: {e}")
 
     def get_move(self, state):
-        """Esta função é chamada na vez do bot para ele escolher uma coluna."""
+        """This function is called during the bot's turn to pick a move."""
         
-        # 1. TRADUZIR O TABULEIRO: O motor usa bits, mas a árvore precisa de números simples
-        # Criamos uma lista vazia (-1) para representar as 42 casas do Connect4
-        tabuleiro_simples = np.full(42, -1)
+        # 1. TRANSLATE BOARD: The game uses bits, but the tree needs simple numbers (-1, 0, 1)
+        # Create a flat array of 42 cells (7x6 Connect4 board)
+        simple_board = np.full(42, -1)
         
-        # Vamos buscar as peças do Jogador 0 e Jogador 1 através das máscaras de bits
+        # Extract bitboards for Player 0 and Player 1
         p0 = state.position if state.turn == 0 else (state.position ^ state.mask)
         p1 = state.position if state.turn == 1 else (state.position ^ state.mask)
         
         for i in range(42):
-            # Transformamos a posição linear 'i' no bit correspondente no tabuleiro
-            bit_da_casa = 1 << ((i % 7) * 7 + (i // 7))
-            if p0 & bit_da_casa: tabuleiro_simples[i] = 0
-            elif p1 & bit_da_casa: tabuleiro_simples[i] = 1
+            # Map linear index 'i' back to the bitboard coordinate (column * 7 + row)
+            bit_mask = 1 << ((i % 7) * 7 + (i // 7))
+            if p0 & bit_mask: simple_board[i] = 0
+            elif p1 & bit_mask: simple_board[i] = 1
         
-        # Juntamos o tabuleiro com a informação de quem joga agora (o 'turn')
-        dados_entrada = np.append(tabuleiro_simples, state.turn)
+        # Combine board state with 'whose turn it is' (turn)
+        input_data = np.append(simple_board, state.turn)
         
-        # 2. DECISÃO: Pedimos à árvore para prever qual seria a jogada do MCTS
-        jogada_prevista = int(self.tree.predict(np.array([dados_entrada]))[0])
+        # 2. DECISION: Ask the tree to predict what move MCTS would make here
+        predicted_move = int(self.tree.predict(np.array([input_data]))[0])
         
-        # 3. VERIFICAÇÃO: Se a árvore sugerir uma coluna cheia, jogamos ao calhas para não crashar
-        jogadas_possiveis = state.legal_moves()
-        if jogada_prevista in jogadas_possiveis:
-            return jogada_prevista
+        # 3. SAFETY CHECK: If the tree suggests an illegal move (e.g. full column), pick a random one
+        legal_moves = state.legal_moves()
+        if predicted_move in legal_moves:
+            return predicted_move
         else:
-            # Backup caso a árvore se engane (situação nova que não estava no CSV)
-            return random.choice(jogadas_possiveis)
+            # Backup strategy if the tree encounters a completely new situation
+            return random.choice(legal_moves)
