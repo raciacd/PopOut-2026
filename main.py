@@ -1,5 +1,6 @@
 from random_play import RandomPlay
 from mcts_play import MCTSPlay
+from id3_play import ID3Play
 
 class Connect4:
     def __init__(self):
@@ -199,7 +200,8 @@ if __name__ == "__main__":
             print("1 - Human")
             print("2 - Random Play")
             print("3 - MCTS")
-            player_str = input("Enter 1 or 2 or 3: ").strip()
+            print("4 - ID3 (MCTS)")
+            player_str = input("Enter 1 or 2 or 3 or 4: ").strip()
             
             if player_str == '1':
                 return HumanPlay(f"Player {num_player} (Human)")
@@ -207,6 +209,8 @@ if __name__ == "__main__":
                 return RandomPlay(f"Player {num_player} (Random)")
             elif player_str == '3':
                 return MCTSPlay(f"Player {num_player} (MCTS)", time_limit=2.0)
+            elif player_str == '4':
+                return ID3Play(f"Player {num_player} (ID3)")
             else:
                 print("Invalid player! Please enter 1, 2 or 3.")
 
