@@ -1,3 +1,8 @@
+import pandas as pd
+import numpy as np
+import random
+from id3_engine import ID3DecisionTree
+
 # --- ID3 AGENT: THE BOT THAT LEARNS FROM MCTS ---
 
 class ID3Play:

@@ -31,7 +31,7 @@ def preparar_dados_e_treinar(nome_ficheiro):
 
 if __name__ == "__main__":
     # NOME EXATO DO TEU FICHEIRO
-    nome_do_csv = 'mcts_2min_vs_random.csv' 
+    nome_do_csv = 'mcts_2sec_vs_random_10k.csv' 
     
     arvore = preparar_dados_e_treinar(nome_do_csv)
     
