@@ -106,3 +106,27 @@ class ID3DecisionTree:
         if x[node.feature_idx] <= node.threshold:
             return self._traverse(x, node.left)
         return self._traverse(x, node.right)
+
+    def show(self, node=None, spacing="", feature_names=None):
+            """Mostra a estrutura da árvore de forma visual no terminal."""
+            if node is None:
+                node = self.root
+
+            # Caso base: Chegámos a uma folha (decisão final)
+            if node.is_leaf():
+                print(spacing + "  Previsão:", node.class_label)
+                return
+
+            # Se tivermos nomes para as colunas, usamos. Caso contrário, usamos o índice.
+            feat = feature_names[node.feature_idx] if feature_names else f"Coluna {node.feature_idx}"
+            
+            # Imprime a condição de divisão
+            print(f"{spacing}[{feat} <= {node.threshold:.2f}]")
+
+            # Mostra o ramo da esquerda (Verdadeiro)
+            print(spacing + " ├── Sim:")
+            self.show(node.left, spacing + " │   ", feature_names)
+
+            # Mostra o ramo da direita (Falso)
+            print(spacing + " └── Não:")
+            self.show(node.right, spacing + "     ", feature_names)
