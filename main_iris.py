@@ -1,46 +1,50 @@
 import numpy as np
 import pandas as pd
-from id3_engine import ID3DecisionTree # Importa a tua classe
+from id3_engine import ID3DecisionTree 
 
 def correr_projeto_iris():
-    print("--- A carregar dados do Iris ---")
+    print("--- Loading Iris Dataset ---")
     
-    # 1. Carregar o CSV
+    # 1. Load the CSV
     try:
         df = pd.read_csv('iris.csv')
     except FileNotFoundError:
-        print("Erro: O ficheiro iris.csv não foi encontrado na pasta!")
+        print("Error: iris.csv not found!")
         return
 
-    # 2. Pré-processamento (Obrigatório para este dataset)
-    # O CSV que enviaste tem: [ID, sepallength, sepalwidth, petallength, petalwidth, class]
-    # Precisamos de remover a coluna 'ID' porque ela baralha a árvore (o ID não ajuda a prever a flor)
-    
-    # Atributos (X): colunas da 1 à 4 (sepallength até petalwidth)
+    # 2. Pre-processing
+    # Features (X): sepallength to petalwidth / Labels (y): class
     X = df.iloc[:, 1:5].values
-    
-    # Etiquetas/Classes (y): última coluna (class)
     y = df.iloc[:, 5].values
-    
-    # Nomes dos atributos para a visualização
     feature_names = df.columns[1:5].tolist()
 
-    # 3. Treinar a Árvore
-    # Criamos a árvore com um limite de profundidade (ex: 4) para evitar sobreajuste
+    # 3. Train the Tree
     tree = ID3DecisionTree(depth_limit=4)
     tree.fit(X, y)
 
-    # 4. Mostrar a Árvore Visualmente (Requisito do enunciado)
-    print("\n--- Estrutura da Árvore Gerada ---")
+    # --- NEW: ACCURACY CALCULATION ---
+    # We ask the tree to predict the classes for the data it just studied
+    predictions = tree.predict(X)
+    
+    # Compare predictions with the real 'y' values
+    # np.mean(predictions == y) gives the percentage of correct answers
+    accuracy = np.mean(predictions == y) * 100
+    print(f"-> Training Accuracy: {accuracy:.2f}%")
+    # ---------------------------------
+
+    # 4. Show the Tree structure (Requirement)
+    print("\n--- Generated Tree Structure ---")
     tree.show(feature_names=feature_names)
 
-    # 5. Testar com um exemplo novo (Aceitar test examples)
-    print("\n--- Teste de Classificação ---")
-    # Vamos inventar uma flor: SepalL=5.1, SepalW=3.5, PetalL=1.4, PetalW=0.2
-    exemplo = np.array([[5.1, 3.5, 1.4, 0.2]])
-    resultado = tree.predict(exemplo)
-    print(f"Dados inseridos: {exemplo}")
-    print(f"Resultado da Árvore: {resultado[0]}")
+    # 5. Test with a new example
+    print("\n--- Manual Test Case ---")
+    example = np.array([[5.1, 3.5, 1.4, 0.2]])
+    result = tree.predict(example)
+    print(f"Input data: {example}")
+    print(f"Tree Prediction: {result[0]}")
+
+if __name__ == "__main__":
+    correr_projeto_iris()
 
 if __name__ == "__main__":
     correr_projeto_iris()
