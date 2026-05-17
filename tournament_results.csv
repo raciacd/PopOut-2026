@@ -1,0 +1,16 @@
+a,b,a_wins,b_wins,draws,timeouts,avg_moves,a_time/move,b_time/move,a_iters/move,b_iters/move
+baseline,low_explore,6,34,0,0,19.5,2.52,2.52,31501.0,47228.0
+baseline,high_explore,32,8,0,0,18.4,2.473,2.474,47260.0,30755.0
+baseline,center_bias,14,25,1,1,25.3,2.474,2.472,36843.0,39013.0
+baseline,win_aware,7,33,0,0,24.2,2.502,2.501,34585.0,28982.0
+baseline,win_block,19,21,0,0,19.2,2.481,2.519,43103.0,5005.0
+low_explore,high_explore,33,7,0,0,19.6,2.473,2.473,50589.0,29211.0
+low_explore,center_bias,17,19,4,4,41.1,2.472,2.472,43085.0,36729.0
+low_explore,win_aware,8,29,3,3,35.7,2.472,2.472,40448.0,31518.0
+low_explore,win_block,32,8,0,0,19.2,2.476,2.517,54364.0,3572.0
+high_explore,center_bias,5,35,0,0,18.4,2.51,2.51,27327.0,40909.0
+high_explore,win_aware,12,27,1,1,27.3,2.48,2.483,36222.0,38823.0
+high_explore,win_block,20,20,0,0,16.1,2.483,2.528,43660.0,2995.0
+center_bias,win_aware,7,33,0,0,20.9,2.494,2.495,33496.0,27506.0
+center_bias,win_block,30,10,0,0,18.8,2.531,2.574,43852.0,3198.0
+win_aware,win_block,32,8,0,0,17.4,2.545,2.586,36757.0,3253.0

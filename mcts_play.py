@@ -2,22 +2,160 @@ import random
 import math
 import time
 import os
+from dataclasses import dataclass
+from typing import Callable
 from multiprocessing import Pool
+
+
+# ============================================================
+# ROLLOUT POLICIES
+# ============================================================
+
+def random_rollout_policy(state, moves):
+    """
+    Baseline rollout policy that selects a move uniformly at random.
+
+    Args: tuple containing state and moves.
+
+    Return: an int representing the chosen move.
+    """
+    return random.choice(moves)
+
+
+def center_biased_rollout_policy(state, moves):
+    """
+    Rollout policy that favors central columns.
+
+    Args: tuple containing state and moves.
+
+    Return: an int representing the chosen move.
+    """
+    column_weights = [1, 2, 3, 4, 3, 2, 1]
+    weights = []
+    for m in moves:
+        if 0 <= m <= 6:
+            weights.append(column_weights[m])
+        elif 7 <= m <= 13:
+            weights.append(column_weights[m - 7] * 0.5) # pops weighted lower
+        else: 
+            weights.append(0.1)
+    return random.choices(moves, weights=weights, k=1)[0]
+
+
+def _is_winning_for(state_after_move, mover_turn):
+    """
+    Helper that checks if the player who just moved won in the resulting state.
+
+    Args: tuple containing state_after_move and mover_turn.
+
+    Return: a bool, True if the mover just won, False otherwise.
+    """
+    if not state_after_move.terminal or state_after_move.result in (None, 0):
+        return False
+    # result == 1 means player 0 won, result == -1 means player 1 won
+    return (mover_turn == 0 and state_after_move.result == 1) or \
+           (mover_turn == 1 and state_after_move.result == -1)
+
+
+def win_aware_rollout_policy(state, moves):
+    """
+    Rollout policy that takes an immediate winning move when available, otherwise plays randomly.
+
+    Args: tuple containing state and moves.
+
+    Return: an int representing the chosen move.
+    """
+    for m in moves:
+        if m == -1:
+            continue
+        if _is_winning_for(state.move(m), state.turn):
+            return m
+    return random.choice(moves)
+
+
+def win_block_rollout_policy(state, moves):
+    """
+    Rollout policy that takes wins, avoids moves that allow the opponent to win next turn, otherwise plays randomly.
+    Costs O(n^2) per step but improves sample quality.
+
+    Args: tuple containing state and moves.
+
+    Return: an int representing the chosen move.
+    """
+    # Immediate win check
+    for m in moves:
+        if m == -1:
+            continue
+        if _is_winning_for(state.move(m), state.turn):
+            return m
+
+    # Filter out moves that give the opponent an immediate win
+    safe = []
+    for m in moves:
+        if m == -1:
+            continue
+        nxt = state.move(m)
+        if nxt.terminal:
+            safe.append(m)
+            continue
+        opp_wins = False
+        for om in nxt.legal_moves():
+            if om == -1:
+                continue
+            if _is_winning_for(nxt.move(om), nxt.turn):
+                opp_wins = True
+                break
+        if not opp_wins:
+            safe.append(m)
+
+    return random.choice(safe) if safe else random.choice(moves)
+
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+@dataclass
+class MCTSConfig:
+    """
+    All MCTS hyperparameters and the rollout heuristic in a single object.
+
+    Attributes:
+        name (str): Display name of this configuration.
+        time_limit (float): Maximum calculation time per move, in seconds.
+        num_workers (int): Number of parallel processes to use.
+        exploration_const (float): UCB1 exploration constant.
+        rollouts_per_expansion (int): Number of rollouts run per expansion step.
+        max_rollout_depth (int): Maximum number of plays allowed in a rollout before cutoff.
+        rollout_policy (Callable): Function (state, moves) -> move used during simulation.
+    """
+    name: str = "Default"
+    time_limit: float = 2.0
+    num_workers: int = 4
+    exploration_const: float = 2.0
+    rollouts_per_expansion: int = 10
+    max_rollout_depth: int = 50
+    rollout_policy: Callable = random_rollout_policy
+
+
+# ============================================================
+# WORKER + TREE BUILDING
+# ============================================================
 
 def mcts_worker(args):
     """
     Worker function to build an MCTS tree in a separate CPU core.
 
-    Args: tuple containing root_state and time_limit.
+    Args: tuple containing root_state and config.
 
     Return: tuple containing children_stats (dict), iterations (int) and total rollouts (int).
     """
-    root_state, time_limit = args
+    root_state, config = args
     
     # Ensures each CPU core generates completely different random games
     random.seed(os.urandom(4))
 
-    nodes, iterations, total_rollouts = build_mcts_tree(root_state, time_limit)
+    nodes, iterations, total_rollouts = build_mcts_tree(root_state, config)
     
     children_stats = {}
     for loc in root_state.legal_moves():
@@ -29,11 +167,11 @@ def mcts_worker(args):
     return children_stats, iterations, total_rollouts
 
 
-def build_mcts_tree(root_state, time_limit):
+def build_mcts_tree(root_state, config):
     """
-    Builds the MCTS statistical tree given a time limit.
+    Builds the MCTS statistical tree using the hyperparameters defined in config.
 
-    Args: tuple containgin root_state and time_limit.
+    Args: tuple containing root_state and config.
 
     Return: tuple containing nodes (dict), iterations (int) and total_rollouts (int).
     """
@@ -45,13 +183,13 @@ def build_mcts_tree(root_state, time_limit):
     iterations = 0
     total_rollouts = 0 
     
-    while time.time() - start_time < time_limit:   
+    while time.time() - start_time < config.time_limit:   
         iterations += 1
 
         # ==========================================
         # SELECTION
         # ==========================================
-        selection_path = selection_phase(nodes, root_state)
+        selection_path = selection_phase(nodes, root_state, config)
         selected_node = selection_path[-1]
         
         _, visits, _ = nodes[selected_node]
@@ -73,9 +211,9 @@ def build_mcts_tree(root_state, time_limit):
             # SIMULATION / ROLLOUT
             # ==========================================
             reward = 0
-            num_runs = 10
+            num_runs = config.rollouts_per_expansion
             for _ in range(num_runs):
-                reward += simulate_rollout(child_state)
+                reward += simulate_rollout(child_state, config)
             total_rollouts += num_runs
             
             w, n, parent_n_dict = nodes[child_state]
@@ -89,9 +227,9 @@ def build_mcts_tree(root_state, time_limit):
             # SIMULATION / ROLLOUT (Direct Simulation)
             # ==========================================
             reward = 0
-            num_runs = 10
+            num_runs = config.rollouts_per_expansion
             for _ in range(num_runs):
-                reward += simulate_rollout(selected_node)   
+                reward += simulate_rollout(selected_node, config)   
             total_rollouts += num_runs
         
         # ==========================================
@@ -107,20 +245,27 @@ def build_mcts_tree(root_state, time_limit):
     return nodes, iterations, total_rollouts
 
 
-def mcts_agent(time_limit, num_workers=4):
+def mcts_agent(config):
     """
-    Wraps the MCTS strategy, returning a move function.
+    Wraps the MCTS strategy, returning a move function parameterized by config.
 
-    Args: tuple containing time_limit and num_workers.
+    Args: a single MCTSConfig.
 
     Return: function that takes current_state and returns the optimal move.
     """
     def strat(current_state):
+        """
+        Runs MCTS in parallel across workers and selects the best move from the aggregated stats.
+
+        Args: current_state.
+
+        Return: the index of the chosen move (int).
+        """
         # Prepare arguments for multiprocessing
-        args = [(current_state, time_limit) for _ in range(num_workers)]
+        args = [(current_state, config) for _ in range(config.num_workers)]
         
         # Run MCTS in parallel across available CPU cores
-        with Pool(processes=num_workers) as pool:
+        with Pool(processes=config.num_workers) as pool:
             results = pool.map(mcts_worker, args)
             
         total_iters = 0
@@ -138,11 +283,11 @@ def mcts_agent(time_limit, num_workers=4):
                 merged_stats[loc][0] += w
                 merged_stats[loc][1] += n
 
-        iter_per_sec = total_iters / time_limit
-        rollouts_per_sec = total_rollouts / time_limit
+        iter_per_sec = total_iters / config.time_limit
+        rollouts_per_sec = total_rollouts / config.time_limit
         
-        print(f"Number of MCTS iterations: {total_iters} ({iter_per_sec:.0f} iters/sec) [Cores: {num_workers}]")
-        print(f"Number of MCTS rollouts:   {total_rollouts} ({rollouts_per_sec:.0f} rollouts/sec) [Cores: {num_workers}]")
+        print(f"[{config.name}] MCTS iterations: {total_iters} ({iter_per_sec:.0f} iters/sec) [Cores: {config.num_workers}]")
+        print(f"[{config.name}] MCTS rollouts:   {total_rollouts} ({rollouts_per_sec:.0f} rollouts/sec) [Cores: {config.num_workers}]")
         
         player = current_state.turn
         best_score = float('-inf') if player == 0 else float('inf')
@@ -165,25 +310,34 @@ def mcts_agent(time_limit, num_workers=4):
         # Safety fallback
         if next_best_move is None:
             return random.choice(current_state.legal_moves())
-            
+
+        # Expose last-move stats so the tournament runner can collect telemetry
+        strat.last_stats = {
+            'iterations': total_iters,
+            'rollouts': total_rollouts,
+            'merged_stats': merged_stats,
+            'chosen_move': next_best_move,
+        }
         return next_best_move
+
+    strat.last_stats = None
     return strat
         
 
-def simulate_rollout(state, max_depth=50):
+def simulate_rollout(state, config):
     """
-    Executes random rollout from given state until the game ends or reaches the number of plays determined by max_depoth.
+    Executes a rollout from the given state using the policy in config, until the game ends or max_rollout_depth is reached.
 
-    Args: tuple containing state and max_depth.
+    Args: tuple containing state and config.
 
-    Return: float for standardized reward: 1.0 for player 0 win, 0.0 for player 1 win, and 0.5 for a draw.
+    Return: float for standardized reward: 1.0 for player 0 win, 0.0 for player 1 win, and 0.5 for a draw or cutoff.
     """
     current_state = state
     depth = 0
     
-    while not current_state.terminal and depth < max_depth:
+    while not current_state.terminal and depth < config.max_rollout_depth:
         moves = current_state.legal_moves()
-        loc = random.choice(moves)
+        loc = config.rollout_policy(current_state, moves)
         current_state = current_state.move(loc) 
         depth += 1
         
@@ -195,11 +349,11 @@ def simulate_rollout(state, max_depth=50):
     return 0.5
         
 
-def selection_phase(nodes, root_state):
+def selection_phase(nodes, root_state, config):
     """
-    Navigates the tree using the UCB1 policy.
+    Navigates the tree using the UCB1 policy with the exploration constant defined in config.
 
-    Args: tuple containing nodes and root_state.
+    Args: tuple containing nodes, root_state and config.
 
     Return: a list containing the path of traversed nodes from the root to the selected leaf.
     """
@@ -239,7 +393,13 @@ def selection_phase(nodes, root_state):
                 path.append(result_state)
                 return path
                         
-            score = calculate_ucb_score(nodes[current_node][1], temp_parent_n_count[current_node], temp_w / temp_visits, next_player)
+            score = calculate_ucb_score(
+                nodes[current_node][1],
+                temp_parent_n_count[current_node],
+                temp_w / temp_visits,
+                next_player,
+                config.exploration_const,
+            )
             
             if score < best_score and next_player == 1:
                 best_score = score
@@ -257,9 +417,9 @@ def calculate_ucb_score(parent_visits, node_visits, win_rate, player, exploratio
     """
     Upper Confidence Bound (UCB1) formula.
 
-    Args: tuple containg parent_visits, node_visits, win_rate, player and exploration_const
+    Args: tuple containing parent_visits, node_visits, win_rate, player and exploration_const.
 
-    Return: a float of the calculated UCB1 value
+    Return: a float of the calculated UCB1 value.
     """
     exploration_term = math.sqrt(exploration_const * math.log(parent_visits) / node_visits)
     if player == 0: 
@@ -272,30 +432,35 @@ class MCTSPlay:
     Wrapper class that manages the MCTS player.
 
     Atributtes:
+        config (MCTSConfig): the full configuration object for the agent.
         name (str): the display name of the agent.
         time_limit (float): maximum calculation time per move.
         num_workers (int): number of parallel processes to use.
         strategy (function): the strategic move evaluation function.
     """
-    def __init__(self, name="MCTS", time_limit=2.0, num_workers=4):
-        """Initializes the MCTSPlay instance with custom settings.
-
-        Args: tuple containing name, time_limit and num_workers.
+    def __init__(self, name="MCTS", time_limit=2.0, num_workers=4, config=None):
         """
-        self.name = name
-        self.time_limit = time_limit
-        self.num_workers = num_workers
-        self.strategy = mcts_agent(self.time_limit, self.num_workers)
+        Initializes the MCTSPlay instance. If a config is provided it takes precedence; otherwise one is built from the legacy kwargs to preserve backwards compatibility.
+
+        Args: tuple containing name, time_limit, num_workers and config.
+        """
+        if config is None:
+            config = MCTSConfig(name=name, time_limit=time_limit, num_workers=num_workers)
+        self.config = config
+        self.name = config.name
+        self.time_limit = config.time_limit
+        self.num_workers = config.num_workers
+        self.strategy = mcts_agent(config)
 
     def get_move(self, position):
         """
         Evaluates the board state and returns the optimal move.
-        
+
         Args: position.
 
-        Return: the index of the selected play (int)
+        Return: the index of the selected play (int).
         """
-        print(f"[{self.name}] Thinking for {self.time_limit} seconds using {self.num_workers} cores...")
+        print(f"[{self.name}] Thinking for {self.config.time_limit} seconds using {self.config.num_workers} cores...")
         move = self.strategy(position)
         print(f"{self.name} chose to play: {move}")
         return move
