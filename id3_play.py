@@ -48,14 +48,14 @@ class ID3Play:
             X = df_limpo.iloc[:, 0:43].values  # Board state + player turn
             y = df_limpo.iloc[:, 43].values    # The move chosen by MCTS (target)
             
-            X_train, X_test, y_train, y_test = custom_train_test_split(X, y, test_size=0.3)
+            X_train, X_test, y_train, y_test = custom_train_test_split(X, y, test_size=0.2)
             
             self.tree.fit(X_train, y_train)
             
             # Check accuracy on unseen data
             preds = self.tree.predict(X_test)
             accuracy = np.mean(preds == y_test) * 100
-            print(f"70/30 Holdout Accuracy: {accuracy:.2f}%")
+            print(f"80/20 Holdout Accuracy: {accuracy:.2f}%")
 
             # 5-FOLD CROSS-VALIDATION
             print("Running 5-Fold Cross-Validation for robustness...")
@@ -78,6 +78,8 @@ class ID3Play:
                 # Save the score for this round
                 score = np.mean(test_tree.predict(X_val) == y_val)
                 cv_scores.append(score)
+
+                print(f"Fold {i + 1} Accuracy: {score * 100:.2f}%")
             
             # Display the final average of the 5 tests
             avg_cv = np.mean(cv_scores) * 100

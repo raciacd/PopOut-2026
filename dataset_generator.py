@@ -5,7 +5,8 @@ from mcts_play import MCTSPlay
 from random_play import RandomPlay
 
 def bitboard_to_flat(pos):
-    """Translates the ultra-fast Bitboards into a 42-element list (Flat 6x7 Matrix).
+    """
+    Translates the ultra-fast Bitboards into a 42-element list (Flat 6x7 Matrix).
 
     Legend for the ID3 algorithm:
          0 = Player 0's piece (O)
@@ -128,9 +129,7 @@ def generate_dataset(agent_0, agent_1, num_games=10, filename="connect4_dataset.
     print("=" * 40)
     print(f"Dataset saved to: {filename}\n")
 
-# ==========================================
 # INTERACTIVE MENU FOR CONFIGURATION
-# ==========================================
 if __name__ == "__main__":
     print("=== Connect 4 Dataset Generator ===")
     
