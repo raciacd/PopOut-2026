@@ -30,6 +30,13 @@ Run the main.py file and choose according to the terminal choices. The game offe
 ```python
 python main.py
 ```
+### MCTS Benchmarking
+
+Run tournament.py. Settings can be changed at the end of the file.
+
+```python
+python torunament.py
+```
 
 ### ID3 Train and test statistics
 
