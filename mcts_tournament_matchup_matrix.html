@@ -1,0 +1,172 @@
+<div style="padding: 1rem 0;">
+  <h2 class="sr-only">MCTS tournament matchup matrix and speed-quality tradeoff</h2>
+
+  <div style="margin-bottom: 1.75rem;">
+    <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 8px;">Win rate of <em>row</em> vs <em>column</em>. 40 games per cell.</p>
+    <table style="width: 100%; border-collapse: separate; border-spacing: 2px; font-size: 13px; table-layout: fixed;">
+      <thead>
+        <tr>
+          <th style="width: 110px; padding: 6px; text-align: right; font-weight: 500; color: var(--color-text-secondary);"></th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">win_aware</th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">low_explore</th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">center_bias</th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">baseline</th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">win_block</th>
+          <th style="padding: 6px 4px; font-weight: 500; color: var(--color-text-secondary); font-size: 11px;">high_explore</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">win_aware</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">72.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">82.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">82.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">80.0%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">67.5%</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">low_explore</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">20.0%</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">42.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">85.0%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">80.0%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">82.5%</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">center_bias</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">17.5%</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">47.5%</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+          <td style="background: #EAF3DE; text-align: center; padding: 10px 4px; border-radius: 4px; color: #27500A; font-weight: 500;">62.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">75.0%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">87.5%</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">baseline</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">17.5%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">15.0%</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">35.0%</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">47.5%</td>
+          <td style="background: #97C459; text-align: center; padding: 10px 4px; border-radius: 4px; color: #173404; font-weight: 500;">80.0%</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">win_block</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">20.0%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">20.0%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">25.0%</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">52.5%</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">50.0%</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px; text-align: right; font-weight: 500; font-size: 12px;">high_explore</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">30.0%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">17.5%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">12.5%</td>
+          <td style="background: #F09595; text-align: center; padding: 10px 4px; border-radius: 4px; color: #501313; font-weight: 500;">20.0%</td>
+          <td style="background: #FCEBEB; text-align: center; padding: 10px 4px; border-radius: 4px; color: #791F1F;">50.0%</td>
+          <td style="background: #D3D1C7; text-align: center; padding: 10px 4px; border-radius: 4px; color: #5F5E5A;">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="display: flex; gap: 12px; margin-top: 10px; font-size: 11px; color: var(--color-text-secondary); justify-content: center;">
+      <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 12px; height: 12px; background: #F09595; border-radius: 2px;"></span>&lt;30%</span>
+      <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 12px; height: 12px; background: #FCEBEB; border-radius: 2px;"></span>30–55%</span>
+      <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 12px; height: 12px; background: #EAF3DE; border-radius: 2px;"></span>55–70%</span>
+      <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 12px; height: 12px; background: #97C459; border-radius: 2px;"></span>≥70%</span>
+    </div>
+  </div>
+
+  <div>
+    <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 8px;">Speed vs strength. X axis is rollout throughput, Y axis is overall win rate.</p>
+    <div style="position: relative; width: 100%; height: 280px;">
+      <canvas id="tradeoffChart" role="img" aria-label="Scatter plot of MCTS iterations per move versus overall win rate. win_block has very low iterations but moderate performance; win_aware leads at high iterations and high win rate.">win_aware 32717 iters 77%, low_explore 47143 iters 62%, center_bias 38800 iters 58%, baseline 38658 iters 39%, win_block 3605 iters 33.5%, high_explore 33435 iters 26%</canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  const points = [
+    { label: 'win_aware',    x: 32717, y: 77.0, color: '#3B6D11' },
+    { label: 'low_explore',  x: 47143, y: 62.0, color: '#185FA5' },
+    { label: 'center_bias',  x: 38800, y: 58.0, color: '#534AB7' },
+    { label: 'baseline',     x: 38658, y: 39.0, color: '#5F5E5A' },
+    { label: 'win_block',    x: 3605,  y: 33.5, color: '#993C1D' },
+    { label: 'high_explore', x: 33435, y: 26.0, color: '#A32D2D' }
+  ];
+
+  new Chart(document.getElementById('tradeoffChart'), {
+    type: 'scatter',
+    data: {
+      datasets: points.map(p => ({
+        label: p.label,
+        data: [{ x: p.x, y: p.y }],
+        backgroundColor: p.color,
+        borderColor: p.color,
+        pointRadius: 8,
+        pointHoverRadius: 10
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: 20 },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'iterations per move', color: '#5F5E5A', font: { size: 12 } },
+          min: 0,
+          max: 55000,
+          ticks: {
+            callback: (v) => (v / 1000).toFixed(0) + 'k',
+            color: '#888780',
+            font: { size: 11 }
+          },
+          grid: { color: 'rgba(136,135,128,0.15)' }
+        },
+        y: {
+          title: { display: true, text: 'overall win rate (%)', color: '#5F5E5A', font: { size: 12 } },
+          min: 15,
+          max: 85,
+          ticks: { color: '#888780', font: { size: 11 } },
+          grid: { color: 'rgba(136,135,128,0.15)' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const p = points[ctx.datasetIndex];
+              return `${p.label}: ${Math.round(p.x).toLocaleString()} iters, ${p.y.toFixed(1)}% wins`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Manual labels next to points
+  const canvas = document.getElementById('tradeoffChart');
+  const observer = new ResizeObserver(() => {
+    setTimeout(() => {
+      const chart = Chart.getChart(canvas);
+      if (!chart) return;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.fillStyle = '#444441';
+      ctx.font = '500 11px sans-serif';
+      points.forEach(p => {
+        const x = chart.scales.x.getPixelForValue(p.x);
+        const y = chart.scales.y.getPixelForValue(p.y);
+        ctx.fillText(p.label, x + 12, y + 4);
+      });
+      ctx.restore();
+    }, 100);
+  });
+  observer.observe(canvas);
+</script>
